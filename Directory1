@@ -51,10 +51,12 @@ for key, val in ftCtry.items():
         #print(acodeurl)
         #Tried BS, but don't know why it took so long to run; changed to Regex.
         acodeurl_re = requests.get(acodeurl)
-        tree = html.fromstring(acodeurl_re.content)  
+        tree = html.fromstring(acodeurl_re.content)
+        #Get city option numbers
         for text in tree.xpath('//option[@value]/text()'):
             if text == 'Select City':
                 continue
             else:
                 city = str(text).strip()
+         #Get city area codes
             
