@@ -1,0 +1,60 @@
+from lxml import html
+import requests
+import re
+import urllib
+from bs4 import BeautifulSoup
+import itertools
+from collections import defaultdict
+import pandas as pd
+
+user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
+headers={'User-Agent':user_agent,} 
+
+mainurl = 'http://www.countrycodes.com/?f=250'  #default homepage starts with the US as From country
+request =  urllib.request.Request(mainurl,None,headers)
+response =  urllib.request.urlopen(request)
+data = response.read() 
+soup = BeautifulSoup(data, "lxml")
+
+Country = {}  # Name is the key and URL (based on Option Number) is the value
+CtrOpNum = []  # List of the number of frmCtry which is also that of toCtry
+ftCtry = {}  # Dictionary of one country (frmCtry) with respect to all the other countries (toCtry) option numbers
+City = {}
+Directory = {} # Country is the key, Area and Code are the values; what about cities??
+
+for _row in soup.select('#frmCountryFrom'):
+    for _item in _row.select('option[value]')[6:]:    #0 is choosing nothing; didn't include it
+        ctropnum = int(_item.get('value'))   #numbers representing countries in the drop-down menu
+        #print(ctropnum)
+        CtrOpNum.append(ctropnum)
+        country = _item.text    #country names
+        #print(country)
+        ctryurl = "http://www.countrycodes.com/?f=%s"%(ctropnum)
+        #Country[country] = str(ctryurl)
+        Country[ctropnum] = {'Country Name':str(country), 'Country URLs':str(ctryurl)}
+#print(CtrOpNum)
+#print(Country)     
+
+#To create the "from-to" country connection.
+for perm in itertools.product(CtrOpNum,CtrOpNum):
+    #print(perm)
+    if perm[0] in ftCtry:
+        ftCtry[perm[0]].append(perm[1])  #perm[0] is the frmCtry and perm[1] is the toCtry.
+    else:
+        ftCtry[perm[0]] = [perm[1]]  
+#print(ftCtry)
+i = 0   
+for key, val in ftCtry.items():
+    for i in range(len(val)):
+        #print(val)
+        acodeurl = "http://www.countrycodes.com/country.php?f=%s&t=%s"%(key,val[i])
+        #print(acodeurl)
+        #Tried BS, but don't know why it took so long to run; changed to Regex.
+        acodeurl_re = requests.get(acodeurl)
+        tree = html.fromstring(acodeurl_re.content)  
+        for text in tree.xpath('//option[@value]/text()'):
+            if text == 'Select City':
+                continue
+            else:
+                city = str(text).strip()
+            
