@@ -1,4 +1,4 @@
-# ScraperPractices
+# Practice Writing Scrapers
 I taught myself how to scrape web page data using Python initially for a scraping project at my internship. The codes in this repository serve as a general practice on Python learning that I have been practicing for a couple of months. 
 
 In AR_, I used BeautifulSoup to scrape from a website that contains Argentina directory information such as country code and area code that are at district level. It is definitely not the most efficient and Pythonic practice, but as a programming beginner (not just Python), I managed to complete the entire coding through trials and erros, trouble shooting, and extensive research on the internet. Throughout such process, I learned that it is crucial to not only think critically and precisely, but also be persistent and fearless of failures.   
