@@ -1,0 +1,127 @@
+
+#Regular expressions library is used for pattern matching
+import re
+import urllib
+from bs4 import BeautifulSoup
+import pandas as pd
+
+user_agent = 'Mozilla/5.0 (Windows; U; Windows NT 5.1; en-US; rv:1.9.0.7) Gecko/2009021910 Firefox/3.0.7'
+headers={'User-Agent':user_agent,} 
+
+#from the first link, turn the contents into a BS object
+mainurl = 'http://www.mapanet.eu/EN/Postal_Codes/?C=DO&n=0&r0=&r1=&r2=&r3=&r4=&l=0'
+request1 =  urllib.request.Request(mainurl,None,headers)
+response1 =  urllib.request.urlopen(request1)
+data = response1.read()
+
+soup = BeautifulSoup(data, "lxml")
+#print(soup.prettify())
+
+
+states_dict = {}
+for link in soup.find('table').find_next(attrs={'class':'BoxLeft'}).find_next(attrs={'class':'indexPC'}).find_all('tr'):
+    #print(link)
+    for l in link.find_all(attrs={'itemprop':'name'}):
+        domstate_name = l.text
+        #domstate_name = domstate_name.split('\n')
+        #print(domstate_name)
+    
+    try:
+        if re.match('window.location.href',link['onclick']):
+            state_href = link['onclick'].split(" ='")
+            state_hrefs = state_href[1].replace("'",'') #str
+            state_link = 'http://www.mapanet.eu'+ state_hrefs #str
+            #state_link = state_link.split('\n')
+            #print(state_link)
+            states_dict[domstate_name] = str(state_link)
+    except:pass 
+#print(states_dict)  
+
+'''
+# To find the state names:
+#for link in soup.find('table').find_next(attrs={'class':'BoxLeft'}).find_next(attrs={'class':'indexPC'}).find_all('span'):
+for link in soup.find_all(attrs={'itemprop':'name'}):
+    domstate_name = link.text
+    #domstate_name = domstate_name.split('\n')
+    #print(domstate_name)
+
+# To find the links:
+for href in soup.find_all('tr'):
+try:
+    if re.match('window.location.href',href['onclick']):
+        state_href = href['onclick'].split(" ='")
+        state_hrefs = state_href[1].replace("'",'') #str
+        state_link = 'http://www.mapanet.eu'+ state_hrefs #str
+        #state_link = state_link.split('\n')
+        #print(state_link)
+except:pass 
+
+'''
+
+city_dict = {}
+for key, val in states_dict.items():
+    statename = key # rename the state_name variable
+    url_state = val # rename the state_url variable
+    temp_request =  urllib.request.Request(url_state,None,headers)
+    temp_response =  urllib.request.urlopen(temp_request)
+    temp_data = temp_response.read()
+    temp_soup = BeautifulSoup(temp_data, "lxml")
+    for link in temp_soup.find('table').find_next(attrs={'class':'indexPC'}).find_all('tr'):
+        for l in link.find_all(attrs={'itemprop':'name'}):
+            city_name = l.text
+        
+        try: 
+            if re.match('window.location.href',link['onclick']):
+                city_href = link['onclick'].split(" ='")
+                city_hrefs = city_href[1].replace("'",'')
+                #print(city_hrefs)
+                city_link = 'http://www.mapanet.eu' + city_hrefs 
+                city_dict[city_name] = {'state':statename,'url':str(city_link),'zipcode':'','lat':0.0,'lng':0.0}
+        except:pass
+#print(city_dict)
+
+
+counter = 0
+DOM = {} 
+for key in city_dict.keys():
+    #this part fills in the zipcode
+    zipurl = city_dict[key]['url']
+    ziprequest=urllib.request.Request(zipurl,None,headers)
+    zipresponse = urllib.request.urlopen(ziprequest)
+    zipdata = zipresponse.read()
+    zipsoup = BeautifulSoup(zipdata, "lxml")
+    #print(zipurl)
+    
+    zipstring = str(zipsoup.find(attrs={'class','line'}).find_next('td').find_next('span').find_next('span'))
+    #print(zipstring)
+    try:
+        zipcode = str(re.findall('(\d{4,5})', zipstring)).strip('[]').strip("''")
+        #print(zipcode)
+    except:pass
+    
+    #this part fills in the lat/lng
+    script = zipsoup.find_all('script')[5].string
+    try:
+        latitude = str(re.findall('\(.[0-9]+.+[0-9]\)', script)[0].strip('()'))
+        longitude =str(re.findall('\(.[0-9]+.+[0-9]\)', script)[1].strip('()'))
+        #print(latitude,longitude)
+    except:pass
+    
+    counter = counter+1
+    #print(counter)
+        
+    city_dict[key]['zipcode']=zipcode
+    city_dict[key]['lat']=latitude
+    city_dict[key]['lng']=longitude
+
+    DOM[key] = city_dict[key]['state'], zipcode, latitude, longitude
+
+#print(DOM)    
+
+
+# To save as csv file
+df = pd.DataFrame(DOM)
+df = df.transpose()
+print(df)
+headers = ['State','Zipcode', 'Latitude', 'Longitude']
+dom = df.to_csv('/Users/Ciao/Desktop/DOM.csv', encoding = 'utf-8', header = headers)
